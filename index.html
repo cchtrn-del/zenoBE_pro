@@ -75,12 +75,12 @@
   .act-btn:active { opacity: .75; }
   .act-btn svg { flex: 0 0 auto; }
   .count-pill.sync-alert {
-    background: #DC2626;
+    background: #B8891F;
     animation: sync-alert-pulse 2.4s ease-in-out infinite;
   }
   .count-pill.sync-alert svg { fill: #fff; }
   @keyframes sync-alert-pulse {
-    50% { background: #991B1B; }
+    50% { background: #E7C55A; }
   }
   .count-pill.syncing {
     background: #fff;
@@ -331,7 +331,7 @@
 
 <main id="view"></main>
 <footer>ZenoBE Pro — ⚠️ Outil d'aide à la décision — vérifier chaque posologie avant administration. Les doses calculées sont automatiques et doivent être contrôlées.</footer>
-<div style="text-align:center;font-size:11px;color:var(--muted);padding:0 16px 14px">version 0.5.0 Pro — 2026 — copyright cchtrn</div>
+<div style="text-align:center;font-size:11px;color:var(--muted);padding:0 16px 14px">version 0.5.1 Pro — 2026 — copyright cchtrn</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -2192,7 +2192,7 @@ function renderAPropos() {
   html += "</div>";
   html += '<div style="height:14px"></div>';
   html += '<div style="display:grid;gap:8px;font-size:14px">';
-  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Version</span><b>0.5.0 Pro</b></div>';
+  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Version</span><b>0.5.1 Pro</b></div>';
   html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Créateur</span><b>Dr Christophe Chantrain</b></div>';
   html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Institution</span><b>CHC Pediaplan</b></div>';
   html += '<div style="display:flex;justify-content:space-between;padding:8px 2px"><span style="color:var(--muted)">Copyright</span><b>2026 — cchtrn</b></div>';
@@ -3655,5 +3655,6 @@ if (cfg.autoSync && (fiches.length === 0 || lastSyncAge > 24 * 3600 * 1000)) {
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="kyJenwRp+2POgRS56/Eixw==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="CmD8z/loMsGjYaaxXcKxqg==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="H8Asp5Ep4m25DPJ8Bh8ADA==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="fNnZ+TQjtHyPA3hOSaaRUw==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>

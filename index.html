@@ -345,7 +345,7 @@
 
 <main id="view"></main>
 <footer>ZenoBE Pro - Outil d'aide à la décision et à la prescription - Ces actes restent la responsabilité du prescripteur - Les doses calculées sont automatiques et doivent être contrôlées.</footer>
-<div style="text-align:center;font-size:11px;color:var(--muted);padding:0 16px 14px">version 0.5.4 Pro — 2026 — copyright cchtrn</div>
+<div style="text-align:center;font-size:11px;color:var(--muted);padding:0 16px 14px">version 0.5.5 Pro — 2026 — copyright cchtrn</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1854,26 +1854,35 @@ function mdToBlocks(md, title) {
   var out = [];
   if (title) out.push({ t: title, h: 1 });
   var lines = String(md || "").split(/\r?\n/);
+  var tbl = null;
+  function flush() { if (tbl && tbl.length) { out.push({ tbl: tbl }); tbl = null; } }
   for (var i = 0; i < lines.length; i++) {
     var ln = lines[i];
-    if (/^\s*$/.test(ln)) continue;
+    if (/^\s*$/.test(ln)) { flush(); continue; }
     var tr = ln.trim();
-    if (tr === "---" || /^={3,}$/.test(tr) || /^-{3,}$/.test(tr)) continue;
+    if (tr === "---" || /^={3,}$/.test(tr) || /^-{3,}$/.test(tr)) { flush(); continue; }
     var h = /^(#{1,6})\s+(.*)$/.exec(ln);
-    if (h) { out.push({ t: h[2], h: h[1].length }); continue; }
+    if (h) { flush(); out.push({ t: h[2], h: h[1].length }); continue; }
     if (/^\s*\|/.test(ln)) {
-      var cells = ln.split("|").map(function (c) { return c.trim(); }).filter(function (c) { return c !== ""; });
-      if (cells.length && /^[-: ]+$/.test(cells.join(""))) continue;
-      out.push({ t: cells.join("  |  "), h: 0 }); continue;
+      var raw = ln.split("|");
+      var cells = raw.slice(1, raw.length > 1 ? raw.length - 1 : raw.length).map(function (c) { return c.trim(); });
+      if (!cells.length) cells = [tr];
+      if (cells.join("") && /^[-: ]+$/.test(cells.join(""))) continue;
+      tbl = tbl || [];
+      tbl.push(cells);
+      continue;
     }
     var b = /^\s*[-*+]\s+(.*)$/.exec(ln);
-    if (b) { out.push({ t: "\u2022 " + b[1], h: 0 }); continue; }
+    if (b) { flush(); out.push({ t: "\u2022 " + b[1], h: 0 }); continue; }
     var q = /^\s*>\s?(.*)$/.exec(ln);
-    if (q) { var qt = q[1].trim(); if (/^\[!/.test(qt)) continue; out.push({ t: qt, h: 0 }); continue; }
+    if (q) { var qt = q[1].trim(); if (/^\[!/.test(qt)) { flush(); continue; } flush(); out.push({ t: qt, h: 0 }); continue; }
+    flush();
     out.push({ t: ln, h: 0 });
   }
+  flush();
   return out;
 }
+
 function pdfWrap(text, maxChars) {
   var words = text.split(/\s+/), lines = [], cur = "";
   for (var i = 0; i < words.length; i++) {
@@ -1891,10 +1900,21 @@ function pdfWrap(text, maxChars) {
   if (!lines.length) lines.push("");
   return lines;
 }
-function zenobePdfBytes(title, md) {
+function zenobePdfBytes(title, md, meta) {
   var W = 595.28, H = 841.89, M = 56;
-  var blocks = mdToBlocks(md, title);
+  meta = meta || {};
+  var BRAND = meta.pro ? "ZenoBE Pro" : "ZenoBE";
+  var SUB = (meta.sub || "Fiche").toUpperCase();
+  var blocks = mdToBlocks(md, null);
+  var ttl = String(title || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (blocks.length && blocks[0].h === 1 && String(blocks[0].t).trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === ttl) blocks.shift();
+  if (!blocks.length) blocks = mdToBlocks(md, title);
   var pages = [], ops = [], y = H - M;
+  function n2(v) { return (Math.round(v * 100) / 100); }
+  function txtOp(x, yy, size, bold, color, s) {
+    ops.push("BT /" + (bold ? "F2" : "F1") + " " + size + " Tf " + (color || "0 g") + " 1 0 0 1 " + n2(x) + " " + n2(yy) + " Tm (" + pdfEsc(s) + ") Tj ET");
+  }
+  function closePage() { pages.push(ops); ops = []; y = H - M; }
   function styleOf(h) {
     if (h === 1) return { sz: 15.5, bold: true, lead: 19, pre: 0 };
     if (h === 2) return { sz: 12.5, bold: true, lead: 16, pre: 9 };
@@ -1902,14 +1922,90 @@ function zenobePdfBytes(title, md) {
     if (h >= 4) return { sz: 10, bold: true, lead: 13, pre: 5 };
     return { sz: 10, bold: false, lead: 13.2, pre: 3 };
   }
-  function closePage() {
-    ops.push("BT /F1 8 Tf 0.45 g 1 0 0 1 " + M + " 30 Tm (Généré par ZenoBE Pro) Tj ET");
-    pages.push(ops); ops = []; y = H - M;
+  var yTop = H - M;
+  txtOp(M, yTop - 18, 15, true, "0.055 0.58 0.535 rg", BRAND);
+  txtOp(W - M - SUB.length * 5, yTop - 18, 8, true, "0.45 g", pdfLatin(SUB));
+  ops.push("0.86 0.91 0.90 RG 0.6 w " + n2(M) + " " + n2(yTop - 32) + " " + n2(W - 2 * M) + " 0 re S");
+  txtOp(M, yTop - 56, 15.5, true, "0 g", pdfLatin(mdInlineTxt(title)));
+  var ml = [];
+  if (meta.author) ml.push(meta.author);
+  if (meta.created) ml.push("Créée : " + meta.created);
+  if (meta.updated) ml.push("MAJ : " + meta.updated);
+  if (ml.length) txtOp(M, yTop - 73, 9, false, "0.45 g", pdfLatin(ml.join("  -  ")));
+  var tg = (meta.tags || []).slice(0, 6).join("  |  ");
+  if (tg) txtOp(M, yTop - 86, 9, false, "0.45 g", pdfLatin(tg));
+  y = yTop - 96;
+  function drawTable(rows) {
+    var sz = 9, pad = 7, lead = 11.5, avail = W - 2 * M;
+    var ncols = 0;
+    rows.forEach(function (r) { ncols = Math.max(ncols, r.length); });
+    var widths = [];
+    for (var c = 0; c < ncols; c++) {
+      var mx = 1;
+      rows.forEach(function (r) { mx = Math.max(mx, (r[c] || "").length); });
+      widths.push(avail * mx);
+    }
+    var tot = 0;
+    widths.forEach(function (w) { tot += w; });
+    if (!tot) tot = 1;
+    var availLeft = avail;
+    widths = widths.map(function (w) { return w * availLeft / tot; });
+    if (availLeft > 55 * ncols) widths = widths.map(function (w) { return Math.max(w, 55); });
+    var s2 = 0;
+    widths.forEach(function (w) { s2 += w; });
+    if (s2 > availLeft) widths = widths.map(function (w) { return w * availLeft / s2; });
+    var xs = [M];
+    widths.forEach(function (w) { xs.push(xs[xs.length - 1] + w); });
+    var rowLines = rows.map(function (r) {
+      var rl = [];
+      for (var c2 = 0; c2 < ncols; c2++) {
+        var t = pdfLatin(mdInlineTxt(r[c2] || ""));
+        rl.push(pdfWrap(t, Math.max(4, Math.floor((widths[c2] - 2 * pad) / (sz * 0.52)))));
+      }
+      return rl;
+    });
+    var rowH = rowLines.map(function (rl) {
+      var mxl = 1;
+      rl.forEach(function (cl) { mxl = Math.max(mxl, cl.length); });
+      return mxl * lead + pad;
+    });
+    function drawRow(r) {
+      var top = y;
+      var fill = r === 0 ? "0.92 0.94 0.96 rg" : (r % 2 === 1 ? "0.965 0.97 0.975 rg" : null);
+      if (fill) ops.push(fill + " " + n2(M) + " " + n2(top - rowH[r]) + " " + n2(avail) + " " + n2(rowH[r]) + " re f");
+      var tbase = top - rowH[r] + pad / 2 + 2;
+      for (var c3 = 0; c3 < ncols; c3++) {
+        var list = rowLines[r][c3] || [""];
+        for (var li = 0; li < list.length; li++) {
+          txtOp(xs[c3] + pad, tbase + (list.length - 1 - li) * lead - 3, sz, r === 0, "0 g", list[li]);
+        }
+      }
+      ops.push("0.75 G 0.6 w");
+      ops.push(n2(M) + " " + n2(top) + " m " + n2(M + avail) + " " + n2(top) + " l S");
+      ops.push(n2(M) + " " + n2(top - rowH[r]) + " m " + n2(M + avail) + " " + n2(top - rowH[r]) + " l S");
+      for (var c4 = 0; c4 <= ncols; c4++) ops.push(n2(xs[c4]) + " " + n2(top) + " m " + n2(xs[c4]) + " " + n2(top - rowH[r]) + " l S");
+      y = top - rowH[r];
+    }
+    for (var r = 0; r < rows.length; r++) {
+      if (y - rowH[r] < M + 40) {
+        closePage();
+        if (r > 0) drawRow(0);
+      }
+      drawRow(r);
+    }
   }
-  for (var i = 0; i < blocks.length; i++) {
-    var blk = blocks[i];
+  var bi = 0;
+  while (bi < blocks.length) {
+    var blk = blocks[bi];
+    if (blk.tbl) {
+      var rows = [];
+      while (bi < blocks.length && blocks[bi].tbl) { blocks[bi].tbl.forEach(function (r) { rows.push(r); }); bi++; }
+      drawTable(rows);
+      y -= 8;
+      continue;
+    }
     var txt = pdfLatin(mdInlineTxt(blk.t));
-    if (!txt.trim()) continue;
+    if (!txt.trim()) { bi++; continue; }
     var st = styleOf(blk.h);
     var maxChars = Math.floor((W - 2 * M) / (st.sz * 0.52));
     var lines = pdfWrap(txt, maxChars);
@@ -1917,10 +2013,19 @@ function zenobePdfBytes(title, md) {
     for (var j = 0; j < lines.length; j++) {
       if (y - st.lead < M + 20) closePage();
       y -= st.lead;
-      ops.push("BT /" + (st.bold ? "F2" : "F1") + " " + st.sz + " Tf 0 g 1 0 0 1 " + M + " " + (y + st.sz * 0.25) + " Tm (" + pdfEsc(lines[j]) + ") Tj ET");
+      txtOp(M, y + st.sz * 0.25, st.sz, st.bold, "0 g", lines[j]);
     }
+    bi++;
   }
   if (ops.length || !pages.length) closePage();
+  var d = new Date();
+  var dstr = ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear();
+  var foot = pdfLatin("Généré par " + BRAND + " - " + dstr + " - Les doses calculées sont automatiques et doivent être contrôlées");
+  for (var pw = 0; pw < pages.length; pw++) {
+    var fops = pages[pw];
+    fops.push("BT /F1 8 Tf 0.45 g 1 0 0 1 " + n2(M) + " 30 Tm (" + pdfEsc(foot) + ") Tj ET");
+    fops.push("BT /F1 8 Tf 0.45 g 1 0 0 1 " + n2(W - M - 34) + " 30 Tm (page " + (pw + 1) + "/" + pages.length + ") Tj ET");
+  }
   var objs = [];
   objs.push("<< /Type /Catalog /Pages 2 0 R >>");
   var kids = [];
@@ -1940,15 +2045,16 @@ function zenobePdfBytes(title, md) {
   }
   var xrefAt = build.length;
   build += "xref\n0 " + (objs.length + 1) + "\n0000000000 65535 f \n";
-  for (var r = 0; r < offsets.length; r++) build += String(offsets[r]).padStart(10, "0") + " 00000 n \n";
+  for (var r2 = 0; r2 < offsets.length; r2++) build += String(offsets[r2]).padStart(10, "0") + " 00000 n \n";
   build += "trailer\n<< /Size " + (objs.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xrefAt + "\n%%EOF";
   var u8 = new Uint8Array(build.length);
   for (var k = 0; k < build.length; k++) u8[k] = build.charCodeAt(k) & 255;
   return u8;
 }
-function sharePdf(title, md, filename) {
+
+function sharePdf(title, md, filename, meta) {
   try {
-    var u8 = zenobePdfBytes(title, md);
+    var u8 = zenobePdfBytes(title, md, meta);
     var blob = new Blob([u8], { type: "application/pdf" });
     if (navigator.canShare && navigator.share) {
       var fileObj = new File([blob], filename, { type: "application/pdf" });
@@ -2009,7 +2115,7 @@ function exportFiche(ev, slug) {
     }
     window.location.href = href;
   });
-  item("📤 Partager / PDF", function () { sharePdf(f.title, f.md || ("# " + f.title), (f.slug || "fiche") + ".pdf"); });
+  item("📤 Partager / PDF", function () { sharePdf(f.title, f.md || ("# " + f.title), (f.slug || "fiche") + ".pdf", { sub: "Fiche médicament", author: f.author, created: f.created, updated: f.updated, tags: f.tags, pro: true }); });
   item("🖨️ Imprimer / PDF", function () { zenobePrint(); });
   item("📋 Copier la fiche (Markdown)", function () {
     var md = f.md || ("# " + f.title);
@@ -2067,7 +2173,7 @@ function exportGuide(ev, slug) {
     }
     window.location.href = href;
   });
-  item("📤 Partager / PDF", function () { sharePdf(g.title, g.md || ("# " + g.title), (g.slug || "guideline") + ".pdf"); });
+  item("📤 Partager / PDF", function () { sharePdf(g.title, g.md || ("# " + g.title), (g.slug || "guideline") + ".pdf", { sub: "Recommandation de pratique", author: g.author, created: g.created, updated: g.updated, tags: g.tags, pro: true }); });
   item("🖨️ Imprimer / PDF", function () { zenobePrint(); });
   item("📋 Copier la fiche (Markdown)", function () {
     var md = g.md || ("# " + g.title);
@@ -2396,7 +2502,7 @@ function renderAPropos() {
   html += "</div>";
   html += '<div style="height:14px"></div>';
   html += '<div style="display:grid;gap:8px;font-size:14px">';
-  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Version</span><b>0.5.4 Pro</b></div>';
+  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Version</span><b>0.5.5 Pro</b></div>';
   html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Créateur</span><b>Christophe Chantrain MD, PhD</b></div>';
   html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Institution</span><b>Groupe santé CHC de Liège et Centre CLEA</b></div>';
   html += '<div style="display:flex;justify-content:space-between;padding:8px 2px"><span style="color:var(--muted)">Copyright</span><b>2026 — cchtrn</b></div>';
@@ -3866,6 +3972,6 @@ if (cfg.autoSync && (fiches.length === 0 || lastSyncAge > 24 * 3600 * 1000)) {
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="H8Asp5Ep4m25DPJ8Bh8ADA==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="fNnZ+TQjtHyPA3hOSaaRUw==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="sUOYaniz+Z4EVtnlH/mxUg==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
-<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="pT9b4N53BGGo1D7y5CiswQ==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="SeKBsLd2jALxdQsAbLqlBA==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>

@@ -232,6 +232,20 @@
   .dropitem.liaison-item { background:var(--liaison-soft); }
   .dropitem.liaison-item:hover, .dropitem.liaison-item:active { background:#ece2ff; }
   html.dark .dropitem.liaison-item:hover { background:#2f2450; }
+  :root { --hema-soft:#fdeef1; --hema-border:#e11d48; --hema-g1:#be123c; --hema-g2:#f43f5e; --onco-soft:#fdf3e2; --onco-border:#d97706; --onco-g1:#b45309; --onco-g2:#f59e0b; }
+  html.dark { --hema-soft:#3d1a24; --onco-soft:#3a2a14; }
+  .fiche-card.hema { background:var(--hema-soft); border-color:var(--hema-border); }
+  .doc-row.hema { background:var(--hema-soft); border-radius:12px; }
+  .doc-row.hema > span:first-child { background:linear-gradient(180deg,var(--hema-g1),var(--hema-g2)) !important; }
+  .dropitem.hema-item { background:var(--hema-soft); }
+  .dropitem.hema-item:hover, .dropitem.hema-item:active { background:#fce3ea; }
+  html.dark .dropitem.hema-item:hover { background:#4d2230; }
+  .fiche-card.onco { background:var(--onco-soft); border-color:var(--onco-border); }
+  .doc-row.onco { background:var(--onco-soft); border-radius:12px; }
+  .doc-row.onco > span:first-child { background:linear-gradient(180deg,var(--onco-g1),var(--onco-g2)) !important; }
+  .dropitem.onco-item { background:var(--onco-soft); }
+  .dropitem.onco-item:hover, .dropitem.onco-item:active { background:#f9e8cd; }
+  html.dark .dropitem.onco-item:hover { background:#47341a; }
   .empty {
     text-align: center; padding: 40px 20px; color: var(--muted);
   }
@@ -331,7 +345,7 @@
 
 <main id="view"></main>
 <footer>ZenoBE Pro — ⚠️ Outil d'aide à la décision — vérifier chaque posologie avant administration. Les doses calculées sont automatiques et doivent être contrôlées.</footer>
-<div style="text-align:center;font-size:11px;color:var(--muted);padding:0 16px 14px">version 0.5.1 Pro — 2026 — copyright cchtrn</div>
+<div style="text-align:center;font-size:11px;color:var(--muted);padding:0 16px 14px">version 0.5.2 Pro — 2026 — copyright cchtrn</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -423,7 +437,22 @@ var THEMES = {
 };
 var curTheme = loadLs(LS.theme, "bleu");
 var liaisonMode = loadLs(LS.liaison, false);
+var hemaMode = loadLs("fmp.hema.v1", false);
+var oncoMode = loadLs("fmp.onco.v1", false);
 function setLiaison(v) { liaisonMode = !!v; saveLs(LS.liaison, liaisonMode); render(); }
+function setHema(v) { hemaMode = !!v; saveLs("fmp.hema.v1", hemaMode); render(); }
+function setOnco(v) { oncoMode = !!v; saveLs("fmp.onco.v1", oncoMode); render(); }
+function tagMatch(tags, key) {
+  var a = (Array.isArray(tags) ? tags : (tags ? [String(tags)] : []));
+  for (var i = 0; i < a.length; i++) { if (normKey(String(a[i])).indexOf(key) >= 0) return true; }
+  return false;
+}
+function hlKind(tags) {
+  if (oncoMode && tagMatch(tags, "onco")) return "onco";
+  if (hemaMode && tagMatch(tags, "hemato")) return "hema";
+  if (liaisonMode && hasLiaisonTags(tags)) return "liaison";
+  return "";
+}
 function hasLiaisonTags(tags) {
   var a = Array.isArray(tags) ? tags : (tags ? [String(tags)] : []);
   for (var i = 0; i < a.length; i++) { if (normKey(String(a[i])).indexOf("liaison") >= 0) return true; }
@@ -1386,7 +1415,7 @@ function renderHome() {
     });
     html += favList.length ? sect(zenTile(ZENOBE_PICTOS.favoris) + "Mes favoris · " + favList.length,
       '<div class="droplist" style="margin-bottom:0">' + favList.map(function (f) {
-        return '<div class="dropitem' + (liaisonMode && hasLiaisonTags(f.tags) ? ' liaison-item' : '') + '" onclick="openFiche(\'' + f.slug + '\')">★ ' + esc(f.title) +
+        return '<div class="dropitem' + (hlKind(f.tags) ? ' ' + hlKind(f.tags) + '-item' : '') + '" onclick="openFiche(\'' + f.slug + '\')">★ ' + esc(f.title) +
           '<span class="m" style="float:right;margin-top:2px">' + (f.updated ? "MAJ : " + esc(f.updated) : "") + "</span></div>";
       }).join("") + "</div>")
       : sect(zenTile(ZENOBE_PICTOS.favoris) + "Mes favoris", '<div class="empty">Aucun favori — touchez l\'étoile ☆ d\'une fiche pour l\'ajouter.</div>');
@@ -1400,7 +1429,7 @@ function renderHome() {
     if (recs.length) {
       html += sect(zenTile(ZENOBE_PICTOS.recents) + "Récemment consultées",
         '<div class="droplist" style="margin-bottom:0">' + recs.map(function (f, i) {
-          return '<div class="dropitem' + (liaisonMode && hasLiaisonTags(f.tags) ? ' liaison-item' : '') + '" onclick="openFiche(\'' + f.slug + '\')">' +
+          return '<div class="dropitem' + (hlKind(f.tags) ? ' ' + hlKind(f.tags) + '-item' : '') + '" onclick="openFiche(\'' + f.slug + '\')">' +
             (i === 0 ? "▸ " : "· ") + esc(f.title) +
             '<span class="m" style="float:right;margin-top:2px">' + (i === 0 ? "la plus récente" : (f.updated ? "MAJ : " + esc(f.updated) : "")) + "</span></div>";
         }).join("") + "</div>");
@@ -1443,17 +1472,17 @@ function renderHome() {
   if (q) {
     var glob = [];
     fiches.filter(function (f) { return f.poso.length && f.text.indexOf(q) >= 0; }).slice(0, 3).forEach(function (f) {
-      glob.push({ t: f.title, d: "Calculateur de dose", li: liaisonMode && hasLiaisonTags(f.tags), href: "#/calculateur?f=" + encodeURIComponent(f.slug) });
+      glob.push({ t: f.title, d: "Calculateur de dose", li: hlKind(f.tags), href: "#/calculateur?f=" + encodeURIComponent(f.slug) });
     });
     var NORMES_PAGES = [
       { t: "Biométrie", d: "Poids, taille, IMC, PC — percentiles OMS / CDC", href: "#/biometrie/percentiles", kw: "poids taille imc percentile perimetre cranien croissance oms cdc z score surface corporelle sc" },
       { t: "Hémodynamique", d: "Tension artérielle et fréquence cardiaque selon l'âge", href: "#/biometrie/hemodynamique", kw: "tension arterielle ta fc frequence cardiaque hemodynamique pouls hta map epals signes vitaux" },
       { t: "Protocoles HOP", d: "Protocoles d'hospitalisation", href: "#/protocoles", kw: "protocole protocoles hop hospitalisation conduite a tenir procedure" },
       { t: "Laboratoire", d: "Valeurs biologiques de référence", href: "#/laboratoire", kw: "laboratoire labo nfs formule sanguine hemoglobine hte plaquettes leucocytes vcm biologie sang" },
-      { t: "Scores cliniques", d: "Scores et repères cliniques", href: "#/scores", kw: "scores cliniques tanner puberte developpement glasgow" }
+      { t: "Scores cliniques", d: "Scores et repères cliniques en pédiatrie", href: "#/scores", kw: "scores cliniques tanner puberte developpement glasgow" }
     ];
     guides.filter(function (g) { return g.text.indexOf(q) >= 0; }).slice(0, 3).forEach(function (g) {
-      glob.push({ t: g.title, d: "Guidelines", li: liaisonMode && hasLiaisonTags(g.tags), href: "#/guideline/" + encodeURIComponent(g.slug) });
+      glob.push({ t: g.title, d: "Guidelines", li: hlKind(g.tags), href: "#/guideline/" + encodeURIComponent(g.slug) });
     });
     NORMES_PAGES.forEach(function (p) {
       if (norm(p.t + " " + p.kw).indexOf(q) >= 0) glob.push({ t: p.t, d: p.d, href: p.href });
@@ -1465,11 +1494,11 @@ function renderHome() {
       var kinds = docKinds(parts.fm);
       if (!kinds.length) return;
       var k0 = kinds[0];
-      glob.push({ t: parts.fm.titre || n.replace(/\.md$/i, ""), d: docTitre(k0), li: liaisonMode && hasLiaisonTags(parts.fm.tags), href: "#/" + docRoute(k0) + "/view/" + encodeURIComponent(n) });
+      glob.push({ t: parts.fm.titre || n.replace(/\.md$/i, ""), d: docTitre(k0), li: hlKind(parts.fm.tags), href: "#/" + docRoute(k0) + "/view/" + encodeURIComponent(n) });
     });
     if (glob.length) {
       html += sect("🔎 Aussi dans ZenoBE", '<div class="droplist" style="margin-bottom:0">' + glob.slice(0, 8).map(function (g) {
-        return '<div class="dropitem' + (g.li ? ' liaison-item' : '') + '" onclick="window.location.hash=\'' + g.href + '\">' + esc(g.t) +
+        return '<div class="dropitem' + (g.li ? ' ' + g.li + '-item' : '') + '" onclick="window.location.hash=\'' + g.href + '\">' + esc(g.t) +
           '<span class="m" style="float:right;margin-top:2px">' + esc(g.d) + "</span></div>";
       }).join("") + "</div>");
     }
@@ -1484,7 +1513,7 @@ function renderHome() {
 function cardHtml(f) {
   var isFav = favs.indexOf(f.slug) >= 0;
   var tags = f.tags.slice(0, 3).map(function (t) { return '<span class="tagchip">' + esc(t) + "</span>"; }).join("");
-  return '<div class="fiche-card' + (liaisonMode && hasLiaisonTags(f.tags) ? ' liaison' : '') + '" onclick="openFiche(\'' + f.slug + '\')">' +
+  return '<div class="fiche-card' + (hlKind(f.tags) ? ' ' + hlKind(f.tags) : '') + '" onclick="openFiche(\'' + f.slug + '\')">' +
     '<button class="star" title="Favori" onclick="toggleFavStar(event,\'' + f.slug + '\')">' + (isFav ? "★" : "☆") + "</button>" +
     '<p class="t">' + esc(f.title) + "</p>" + tags +
     '<p class="m">' + (f.updated ? "MAJ : " + esc(f.updated) : (f.created ? "Créée : " + esc(f.created) : "")) + "</p>" +
@@ -1545,7 +1574,7 @@ function glTags(g) { return g.tags.filter(function (t) { return normKey(t) !== "
 function glCard(g) {
   var isFav = glFavs.indexOf(g.slug) >= 0;
   var tags = glTags(g).slice(0, 3).map(function (t) { return '<span class="tagchip">' + esc(t) + "</span>"; }).join(" ");
-  return '<div class="fiche-card' + (liaisonMode && hasLiaisonTags(g.tags) ? ' liaison' : '') + '" onclick="openGuide(\'' + g.slug + '\')">' +
+  return '<div class="fiche-card' + (hlKind(g.tags) ? ' ' + hlKind(g.tags) : '') + '" onclick="openGuide(\'' + g.slug + '\')">' +
     '<button class="star" title="Favori" onclick="toggleGlFavStar(event,\'' + g.slug + '\')">' + (isFav ? "★" : "☆") + "</button>" +
     '<p class="t">' + esc(g.title) + "</p>" + tags + "<div></div></div>";
 }
@@ -2192,9 +2221,9 @@ function renderAPropos() {
   html += "</div>";
   html += '<div style="height:14px"></div>';
   html += '<div style="display:grid;gap:8px;font-size:14px">';
-  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Version</span><b>0.5.1 Pro</b></div>';
-  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Créateur</span><b>Dr Christophe Chantrain</b></div>';
-  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Institution</span><b>CHC Pediaplan</b></div>';
+  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Version</span><b>0.5.2 Pro</b></div>';
+  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Créateur</span><b>Christophe Chantrain MD, PhD</b></div>';
+  html += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 2px"><span style="color:var(--muted)">Institution</span><b>Groupe santé CHC de Liège et Centre CLEA</b></div>';
   html += '<div style="display:flex;justify-content:space-between;padding:8px 2px"><span style="color:var(--muted)">Copyright</span><b>2026 — cchtrn</b></div>';
   html += "</div>";
   html += '<p class="field-note" style="margin-top:14px">Application locale et hors ligne : les fiches sont conservées sur cet appareil et mises à jour depuis votre coffre Obsidian via GitHub.</p>';
@@ -2250,9 +2279,13 @@ function renderReglInterface() {
   html += [100, 110, 120].map(function (v) {
     return '<button class="btn' + (fontScale === v ? " btn-primary" : "") + '" onclick="setFont(' + v + ')">' + (v === 100 ? "A" : v === 110 ? "A+" : "A++") + " · " + v + " %</button>";
   }).join(" ");
-  html += "<div style='height:18px'></div><h3>Priorité soins de liaison</h3>";
-  html += "<p style='font-size:13px;color:var(--muted);margin:4px 0 10px'>Met en évidence (fond violet) toutes les fiches portant le tag « liaison » — médicaments, guidelines et normes. Mémorisé sur cet appareil.</p>";
-  html += '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:14px;cursor:pointer"><input type="checkbox" onchange="setLiaison(this.checked)"' + (liaisonMode ? " checked" : "") + ' style="width:18px;height:18px"/> Activer la mise en évidence des fiches de liaison</label>';
+  html += "<div style='height:18px'></div><h3>Mise en avant</h3>";
+  html += "<p style='font-size:13px;color:var(--muted);margin:4px 0 10px'>Met en évidence, par couleur, les fiches portant les tags correspondants — médicaments, guidelines et normes. Violet : tag « liaison » · bordeaux : tag « hémato » · ambre : tag « onco ». Mémorisé sur cet appareil.</p>";
+  html += '<div style="display:grid;gap:8px">';
+  html += '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:14px;cursor:pointer"><input type="checkbox" onchange="setLiaison(this.checked)"' + (liaisonMode ? " checked" : "") + ' style="width:18px;height:18px"/><span style="width:14px;height:14px;border-radius:4px;display:inline-block;background:#a78bfa"></span> Soins de liaison (violet)</label>';
+  html += '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:14px;cursor:pointer"><input type="checkbox" onchange="setHema(this.checked)"' + (hemaMode ? " checked" : "") + ' style="width:18px;height:18px"/><span style="width:14px;height:14px;border-radius:4px;display:inline-block;background:#e11d48"></span> Hématologie (bordeaux)</label>';
+  html += '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:14px;cursor:pointer"><input type="checkbox" onchange="setOnco(this.checked)"' + (oncoMode ? " checked" : "") + ' style="width:18px;height:18px"/><span style="width:14px;height:14px;border-radius:4px;display:inline-block;background:#f59e0b"></span> Oncologie (ambre)</label>';
+  html += '</div>';
   html += "</div>";
   view.innerHTML = html;
 }
@@ -2891,9 +2924,9 @@ function renderBiometrie() {
     '<div class="card" style="margin-top:12px">' +
     hubBtn({ icon: NM_ICO.biometrie, t: "Biométrie", d: "Poids, taille/longueur, IMC et périmètre crânien — percentiles, z-scores et seuils OMS 2006/2007.", href: "#/biometrie/percentiles" }) +
     hubBtn({ icon: NM_ICO.hemo, t: "Hémodynamique", d: "Tension artérielle et fréquence cardiaque attendues selon l\'âge (P5 · P50 · P95).", href: "#/biometrie/hemodynamique" }) +
-    hubBtn({ icon: NM_ICO.protocoles, t: "Protocoles HOP", d: "Protocoles d'hospitalisation — fiches du coffre portant le tag « Protocole ».", href: "#/protocoles" }) +
+    hubBtn({ icon: NM_ICO.protocoles, t: "Protocoles HOP", d: "Extraits de protocoles en hématologie oncologie pédiatrique.", href: "#/protocoles" }) +
     hubBtn({ icon: NM_ICO.labo, t: "Laboratoire", d: "Valeurs de référence biologiques pédiatriques.", href: "#/laboratoire" }) +
-    hubBtn({ icon: NM_ICO.scores, t: "Scores cliniques", d: "Scores et repères cliniques : développement pubertaire (Tanner), et plus à venir.", href: "#/scores", last: true }) +
+    hubBtn({ icon: NM_ICO.scores, t: "Scores cliniques", d: "Scores et repères cliniques en pédiatrie.", href: "#/scores", last: true }) +
     '</div>';
   nmPageHook = null;
   nmBind();
@@ -3216,7 +3249,7 @@ function docTitre(kind) { return kind === "labo" ? "Laboratoire" : kind === "sco
 
 function docRow(kind, r, last) {
   return '<a href="' + r.href + '" style="text-decoration:none;display:block">' +
-    '<div class="' + (r.li ? "doc-row liaison" : "doc-row") + '" style="display:flex;align-items:center;gap:14px;padding:13px 4px;' + (last ? "" : "border-bottom:1px solid var(--border);") + '">' +
+    '<div class="' + (r.li ? "doc-row " + r.li : "doc-row") + '" style="display:flex;align-items:center;gap:14px;padding:13px 4px;' + (last ? "" : "border-bottom:1px solid var(--border);") + '">' +
     '<span style="width:38px;height:38px;border-radius:11px;background:linear-gradient(180deg,var(--g1),var(--accent));color:#fff;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto">' +
     (kind === "labo" ? NM_ICO.labo : kind === "scores" ? NM_ICO.scores : NM_ICO.protocoles) + "</span>" +
     '<span style="flex:1"><span style="font-size:15px;font-weight:700;color:var(--deep)">' + esc(r.t) + "</span><br />" +
@@ -3236,7 +3269,7 @@ function docsShowList(kind) {
     var base = names[i].replace(/\.md$/i, "");
     var t = (parts.fm && typeof parts.fm.titre === "string" && parts.fm.titre.trim()) ? parts.fm.titre.trim() : base;
     var d = (parts.fm && typeof parts.fm.description === "string" && parts.fm.description.trim()) ? parts.fm.description.trim() : "Document « " + base + " »";
-    rows.push({ t: t, d: d, li: liaisonMode && hasLiaisonTags(parts.fm.tags), href: "#/" + docRoute(kind) + "/view/" + encodeURIComponent(names[i]) });
+    rows.push({ t: t, d: d, li: hlKind(parts.fm.tags), href: "#/" + docRoute(kind) + "/view/" + encodeURIComponent(names[i]) });
   }
   var html = "";
   for (var j = 0; j < rows.length; j++) html += docRow(kind, rows[j], j === rows.length - 1);
@@ -3656,5 +3689,6 @@ if (cfg.autoSync && (fiches.length === 0 || lastSyncAge > 24 * 3600 * 1000)) {
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="CmD8z/loMsGjYaaxXcKxqg==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="H8Asp5Ep4m25DPJ8Bh8ADA==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="fNnZ+TQjtHyPA3hOSaaRUw==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092" integrity="sha512-UKNk8GbxkABxKcXYuLkO16EleLGUkcvJWtpSNmExE0Too3ZaFAxTscNWEc1OdAv5/BikHawapSCaiD2XCmp+Bw==" nonce="sUOYaniz+Z4EVtnlH/mxUg==" data-cf-beacon='{"version":"2024.11.0","token":"36b4216ae2dc4d5488c249161e71fe1e","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
